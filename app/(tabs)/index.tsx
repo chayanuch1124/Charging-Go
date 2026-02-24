@@ -1,98 +1,201 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { COLORS, globalStyles, PROMOTIONS } from '@/constants/theme';
+import { ChargingStation, fetchChargingStations } from '@/services/api';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function HomeDashboard() {
+    const [stations, setStations] = useState<ChargingStation[]>([]);
+    const [loading, setLoading] = useState(true);
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
+    useEffect(() => {
+        loadStations();
+    }, []);
+
+    const loadStations = async (force = false) => {
+        setLoading(true);
+        try {
+            const data = await fetchChargingStations(force);
+            setStations(data);
+        } catch (error) {
+            console.error('Error loading stations:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <ScrollView style={globalStyles.container} contentContainerStyle={styles.content}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.welcomeText}>สวัสดีครับ!</Text>
+                    <Text style={styles.userName}>คุณกำลังมองหาจุดชาร์จใช่ไหม?</Text>
+                </View>
+                <TouchableOpacity style={styles.notificationBtn}>
+                    <Ionicons name="notifications-outline" size={24} color={COLORS.text} />
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                    <Text style={styles.statValue}>85%</Text>
+                    <Text style={styles.statLabel}>แบตเตอรี่</Text>
+                </View>
+                <View style={styles.statCard}>
+                    <Text style={styles.statValue}>12.5</Text>
+                    <Text style={styles.statLabel}>กม. วันนี้</Text>
+                </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>โปรโมชั่นแนะนำ</Text>
+            <FlatList
+                data={PROMOTIONS}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.promoList}
+                renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.promoCard}>
+                        <Image source={typeof item.image === 'string' ? { uri: item.image } : item.image} style={styles.promoImage} />
+                        <Text style={styles.promoText}>{item.title}</Text>
+                    </TouchableOpacity>
+                )}
             />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+            <Text style={styles.sectionTitle}>สถานีใกล้คุณ</Text>
+            {loading && stations.length === 0 ? (
+                <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>กำลังค้นหาสถานี...</Text>
+                </View>
+            ) : (
+                stations.slice(0, 3).map((station) => (
+                    <TouchableOpacity key={station.id} style={globalStyles.card}>
+                        <View style={styles.stationRow}>
+                            <View style={styles.iconBox}>
+                                <Ionicons name="flash" size={20} color={COLORS.primary} />
+                            </View>
+                            <View style={styles.stationInfo}>
+                                <Text style={styles.stationName}>{station.name}</Text>
+                                <Text style={styles.stationAddress}>{station.address}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+                        </View>
+                    </TouchableOpacity>
+                ))
+            )}
+        </ScrollView>
+    );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+    content: {
+        paddingBottom: 100,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 20,
+        paddingTop: 60,
+    },
+    welcomeText: {
+        color: COLORS.textSecondary,
+        fontSize: 16,
+    },
+    userName: {
+        color: COLORS.text,
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    notificationBtn: {
+        backgroundColor: COLORS.secondary,
+        padding: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        padding: 20,
+        justifyContent: 'space-between',
+    },
+    statCard: {
+        backgroundColor: COLORS.background,
+        width: '48%',
+        padding: 20,
+        borderRadius: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.border,
+    },
+    statValue: {
+        color: COLORS.primary,
+        fontSize: 28,
+        fontWeight: 'bold',
+    },
+    statLabel: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
+        marginTop: 4,
+    },
+    sectionTitle: {
+        color: COLORS.text,
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginLeft: 20,
+        marginTop: 20,
+        marginBottom: 15,
+    },
+    promoList: {
+        paddingLeft: 20,
+        paddingRight: 5,
+    },
+    promoCard: {
+        width: 280,
+        marginRight: 15,
+    },
+    promoImage: {
+        width: '100%',
+        height: 150,
+        borderRadius: 20,
+    },
+    promoText: {
+        color: COLORS.text,
+        marginTop: 10,
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    stationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconBox: {
+        width: 40,
+        height: 40,
+        backgroundColor: 'rgba(0, 189, 104, 0.1)',
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stationInfo: {
+        flex: 1,
+        marginLeft: 15,
+    },
+    stationName: {
+        color: COLORS.text,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    stationAddress: {
+        color: COLORS.textSecondary,
+        fontSize: 12,
+    },
+    loadingContainer: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    loadingText: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
+    },
 });
