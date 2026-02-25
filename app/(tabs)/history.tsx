@@ -1,5 +1,5 @@
 import { COLORS, globalStyles } from '@/constants/theme';
-import { fetchHistory, HistoryRecord, initDatabase, seedMockData } from '@/services/database';
+import { HistoryRecord, HistoryService } from '@/services/historyService';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -14,18 +14,20 @@ export default function HistoryScreen() {
 
     const setupData = async () => {
         try {
-            await initDatabase();
-            await seedMockData();
-            const data = await fetchHistory();
+            // ดึงข้อมูลผ่าน API/GitHub และเก็บใน AsyncStorage
+            const data = await HistoryService.fetchHistoryFromApi();
             setHistory(data);
         } catch (error) {
             console.error('Failed to load history:', error);
+            // ถ้าเน็ตไม่มี ให้ลองโหลดจาก Cache
+            const cachedData = await HistoryService.getCachedHistory();
+            setHistory(cachedData);
         }
     };
 
     const onRefresh = async () => {
         setRefreshing(true);
-        const data = await fetchHistory();
+        const data = await HistoryService.fetchHistoryFromApi();
         setHistory(data);
         setRefreshing(false);
     };
@@ -33,8 +35,8 @@ export default function HistoryScreen() {
     const renderItem = ({ item }: { item: HistoryRecord }) => (
         <View style={[globalStyles.card, styles.historyCard]}>
             <View style={styles.cardHeader}>
-                <View style={[styles.iconBox, { backgroundColor: '#EBF5FF' }]}>
-                    <Ionicons name="flash" size={20} color="#007AFF" />
+                <View style={[styles.iconBox, { backgroundColor: '#F8F9FA' }]}>
+                    <Ionicons name="flash" size={20} color="#00BD68" />
                 </View>
                 <View style={styles.titleInfo}>
                     <Text style={styles.stationName}>{item.stationName}</Text>

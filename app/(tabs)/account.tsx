@@ -1,6 +1,10 @@
 import { COLORS, globalStyles } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { Profile, ProfileService } from '@/services/profileService';
 import { Vehicle, VehicleService } from '@/services/vehicleService';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -16,10 +20,97 @@ export default function AccountScreen() {
         license_plate: '',
         province: '',
     });
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [isEditingProfile, setIsEditingProfile] = useState(false);
+    const [tempUsername, setTempUsername] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
 
     useEffect(() => {
-        loadVehicles();
+        const init = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                const userId = user?.id || '00000000-0000-0000-0000-000000000000'; // Fallback for dev
+                await loadProfile(userId);
+            } catch (error) {
+                console.error('Init error:', error);
+                await loadProfile('00000000-0000-0000-0000-000000000000');
+            }
+            loadVehicles();
+        };
+        init();
     }, []);
+
+    const loadProfile = async (userId: string) => {
+        try {
+            const data = await ProfileService.getProfile(userId);
+            if (data) {
+                setProfile(data);
+                setTempUsername(data.username || '');
+            } else {
+                // Create profile if doesn't exist
+                const newProfile = await ProfileService.updateProfile({
+                    id: userId,
+                    username: 'ผู้ใช้งานใหม่',
+                    avatar_url: null
+                });
+                setProfile(newProfile);
+                setTempUsername(newProfile.username || '');
+            }
+        } catch (error) {
+            console.error('Failed to load profile:', error);
+        }
+    };
+
+    const handlePickImage = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+                base64: true,
+            });
+
+            if (!result.canceled && result.assets[0].uri) {
+                setIsUploading(true);
+                const targetId = profile?.id || '00000000-0000-0000-0000-000000000000';
+                const publicUrl = await ProfileService.uploadAvatar(targetId, result.assets[0].uri, result.assets[0].base64 || undefined);
+
+                const updatedProfile: Profile = {
+                    id: targetId,
+                    username: tempUsername || 'ผู้ใช้งานใหม่',
+                    avatar_url: publicUrl
+                };
+
+                await ProfileService.updateProfile(updatedProfile);
+                setProfile(updatedProfile);
+                Alert.alert('สำเร็จ', 'อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            Alert.alert('ข้อผิดพลาด', 'ไม่สามารถอัปโหลดรูปภาพได้ กรุณาตรวจสอบการตั้งค่า Supabase Storage');
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleSaveProfile = async () => {
+        const targetId = profile?.id || '00000000-0000-0000-0000-000000000000';
+        try {
+            const updatedProfile: Profile = {
+                id: targetId,
+                username: tempUsername,
+                avatar_url: profile?.avatar_url || null
+            };
+            const result = await ProfileService.updateProfile(updatedProfile);
+            setProfile(result);
+            setIsEditingProfile(false);
+            Alert.alert('สำเร็จ', 'อัปเดตชื่อผู้ใช้งานเรียบร้อยแล้ว');
+        } catch (error) {
+            console.error('Save profile error:', error);
+            Alert.alert('ข้อผิดพลาด', 'ไม่สามารถอัปเดตข้อมูลได้ กรุณาลองใหม่อีกครั้ง');
+        }
+    };
 
     const loadVehicles = async () => {
         setLoading(true);
@@ -87,11 +178,44 @@ export default function AccountScreen() {
     return (
         <ScrollView style={globalStyles.container} contentContainerStyle={styles.content}>
             <View style={styles.header}>
-                <View style={styles.avatar}>
-                    <Ionicons name="person" size={50} color={COLORS.primary} />
-                </View>
-                <Text style={styles.userName}>ผู้ใช้งานทั่วไป</Text>
-                <Text style={styles.userEmail}>user@example.com</Text>
+                <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickImage} disabled={isUploading}>
+                    <View style={styles.avatar}>
+                        {isUploading ? (
+                            <ActivityIndicator color={COLORS.primary} />
+                        ) : profile?.avatar_url ? (
+                            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+                        ) : (
+                            <Ionicons name="person" size={50} color={COLORS.primary} />
+                        )}
+                        <View style={styles.cameraIcon}>
+                            <Ionicons name="camera" size={16} color="white" />
+                        </View>
+                    </View>
+                </TouchableOpacity>
+
+                {isEditingProfile ? (
+                    <View style={styles.editUsernameRow}>
+                        <TextInput
+                            style={styles.usernameInput}
+                            value={tempUsername}
+                            onChangeText={setTempUsername}
+                            autoFocus
+                        />
+                        <TouchableOpacity onPress={handleSaveProfile} style={styles.checkBtn}>
+                            <Ionicons name="checkmark-circle" size={28} color={COLORS.primary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setIsEditingProfile(false)} style={styles.closeBtn}>
+                            <Ionicons name="close-circle" size={28} color={COLORS.danger} />
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View style={styles.usernameRow}>
+                        <Text style={styles.userName}>{profile?.username || 'ผู้ใช้งานทั่วไป'}</Text>
+                        <TouchableOpacity onPress={() => setIsEditingProfile(true)} style={styles.editBtn}>
+                            <Ionicons name="create-outline" size={18} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
 
             <View style={styles.section}>
@@ -194,8 +318,17 @@ export default function AccountScreen() {
 const styles = StyleSheet.create({
     content: { paddingBottom: 100 },
     header: { alignItems: 'center', padding: 40, backgroundColor: COLORS.secondary, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(0, 255, 157, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 15, borderWidth: 2, borderColor: COLORS.primary },
+    avatarWrapper: { marginBottom: 15 },
+    avatar: { width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(0, 255, 157, 0.1)', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.primary, position: 'relative' },
+    avatarImage: { width: 96, height: 96, borderRadius: 48 },
+    cameraIcon: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: COLORS.secondary },
     userName: { color: COLORS.text, fontSize: 22, fontWeight: 'bold' },
+    usernameRow: { flexDirection: 'row', alignItems: 'center' },
+    editBtn: { marginLeft: 10 },
+    editUsernameRow: { flexDirection: 'row', alignItems: 'center', width: '80%', justifyContent: 'center' },
+    usernameInput: { flex: 1, backgroundColor: COLORS.background, borderRadius: 10, paddingHorizontal: 15, paddingVertical: 8, color: COLORS.text, fontSize: 18, borderWidth: 1, borderColor: COLORS.border },
+    checkBtn: { marginLeft: 10 },
+    closeBtn: { marginLeft: 5 },
     userEmail: { color: COLORS.textSecondary, fontSize: 14, marginTop: 4 },
     section: { padding: 20 },
     sectionTitle: { color: COLORS.text, fontSize: 18, fontWeight: 'bold', marginBottom: 15 },

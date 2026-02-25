@@ -31,22 +31,52 @@ export default function ScanScreen() {
     return (
         <View style={globalStyles.container}>
             {isFocused && (
-                <CameraView
-                    style={styles.camera}
-                    onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-                    barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                >
-                    <View style={styles.overlay}>
-                        <View style={styles.topContent}>
-                            <Text style={styles.title}>สแกนเพื่อชาร์จ</Text>
-                            <Text style={styles.subtitle}>สแกน QR Code ที่ตู้ชาร์จ</Text>
+                <View style={styles.cameraContainer}>
+                    <CameraView
+                        style={StyleSheet.absoluteFill}
+                        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+                        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                    />
+
+                    {/* --- Professional Scanner Overlay --- */}
+                    <View style={styles.overlayContainer}>
+                        {/* Top Mask */}
+                        <View style={styles.maskSide} />
+
+                        <View style={styles.maskCenterRow}>
+                            {/* Left Mask */}
+                            <View style={styles.maskSide} />
+
+                            {/* Scanner Box (The "Hole") */}
+                            <View style={styles.focusedContainer}>
+                                {/* Corner Accents */}
+                                <View style={[styles.corner, styles.topLeft]} />
+                                <View style={[styles.corner, styles.topRight]} />
+                                <View style={[styles.corner, styles.bottomLeft]} />
+                                <View style={[styles.corner, styles.bottomRight]} />
+
+                                {/* Scanning Laser Line Animation (Static for now) */}
+                                <View style={styles.laserLine} />
+                            </View>
+
+                            {/* Right Mask */}
+                            <View style={styles.maskSide} />
                         </View>
-                        <View style={styles.scanFrame} />
-                        <TouchableOpacity style={styles.flashBtn} onPress={() => setScanned(false)}>
-                            <Ionicons name="refresh" size={28} color={COLORS.text} />
-                        </TouchableOpacity>
+
+                        {/* Bottom Mask */}
+                        <View style={styles.maskBottom}>
+                            <View style={styles.textContainer}>
+                                <Text style={styles.title}>สแกนเพื่อชาร์จ</Text>
+                                <Text style={styles.subtitle}>กรุณาวาง QR Code ให้อยู่ในกรอบ</Text>
+                            </View>
+
+                            <TouchableOpacity style={styles.flashBtn} onPress={() => setScanned(false)}>
+                                <Ionicons name="refresh" size={24} color="white" />
+                                <Text style={styles.refreshText}>สแกนใหม่</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </CameraView>
+                </View>
             )}
             {!isFocused && (
                 <View style={styles.centerContainer}>
@@ -58,15 +88,63 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
-    camera: { flex: 1 },
-    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background, padding: 20 },
+    cameraContainer: { flex: 1, backgroundColor: 'black' },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background },
     permissionText: { color: COLORS.text, textAlign: 'center', fontSize: 16, marginBottom: 20 },
     permissionBtn: { backgroundColor: COLORS.primary, paddingHorizontal: 30, paddingVertical: 12, borderRadius: 25 },
-    btnText: { color: COLORS.background, fontWeight: 'bold' },
-    overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 100 },
-    topContent: { alignItems: 'center' },
-    title: { color: COLORS.text, fontSize: 24, fontWeight: 'bold' },
-    subtitle: { color: COLORS.textSecondary, fontSize: 14, marginTop: 8 },
-    scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: COLORS.primary, borderRadius: 30 },
-    flashBtn: { backgroundColor: 'rgba(26,26,26,0.8)', padding: 15, borderRadius: 40 },
+    btnText: { color: 'white', fontWeight: 'bold' },
+
+    // Overlay Masking
+    overlayContainer: { ...StyleSheet.absoluteFillObject },
+    maskSide: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+    maskCenterRow: { flexDirection: 'row', height: 260 },
+    maskBottom: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', paddingTop: 30 },
+
+    focusedContainer: {
+        width: 260,
+        height: 260,
+        backgroundColor: 'transparent',
+    },
+
+    // Corner Accents
+    corner: {
+        position: 'absolute',
+        width: 30,
+        height: 30,
+        borderColor: COLORS.primary,
+    },
+    topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 15 },
+    topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 15 },
+    bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 15 },
+    bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 15 },
+
+    laserLine: {
+        position: 'absolute',
+        top: '50%',
+        left: '10%',
+        right: '10%',
+        height: 2,
+        backgroundColor: COLORS.primary,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 10,
+        elevation: 10,
+    },
+
+    textContainer: { alignItems: 'center', marginBottom: 40 },
+    title: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+    subtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 8 },
+
+    flashBtn: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 25,
+        paddingVertical: 12,
+        borderRadius: 30,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    refreshText: { color: 'white', marginLeft: 10, fontWeight: '600' }
 });

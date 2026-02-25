@@ -11,6 +11,7 @@ export default function ExploreScreen() {
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
     const mapRef = useRef<MapView>(null);
 
     // Bottom Sheet Animation
@@ -126,6 +127,18 @@ export default function ExploreScreen() {
         }
     };
 
+    const handleStationSelect = (station: ChargingStation) => {
+        setSelectedStation(station);
+        if (mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: station.latitude - 0.01, // Offset slightly to accommodate bottom sheet
+                longitude: station.longitude,
+                latitudeDelta: 0.03,
+                longitudeDelta: 0.03,
+            }, 800);
+        }
+    };
+
     const centerOnUser = () => {
         if (location && mapRef.current) {
             mapRef.current.animateToRegion({
@@ -226,10 +239,11 @@ export default function ExploreScreen() {
                             latitude: station.latitude,
                             longitude: station.longitude,
                         }}
+                        onPress={() => handleStationSelect(station)}
                     >
                         <View style={[
                             styles.markerCircle,
-                            { backgroundColor: station.status === 'available' ? COLORS.primary : '#999' }
+                            { backgroundColor: station.status === 'available' ? COLORS.primary : COLORS.danger }
                         ]}>
                             <MaterialCommunityIcons name="ev-station" size={16} color="white" />
                         </View>
@@ -254,7 +268,7 @@ export default function ExploreScreen() {
                 ]}
             >
                 <View style={styles.sheetHeader} {...panResponder.panHandlers}>
-                    <Text style={styles.sheetTitle}>รายชื่อ <Text style={{ color: '#007AFF' }}>ค้นเจอ {stations.length} สถานี</Text></Text>
+                    <Text style={styles.sheetTitle}>รายชื่อ <Text style={{ color: '#00BD68' }}>ค้นเจอ {stations.length} สถานี</Text></Text>
                     <View style={styles.headerIcons}>
                         <TouchableOpacity>
                             <Ionicons name="list" size={24} color={COLORS.text} />
@@ -277,7 +291,7 @@ export default function ExploreScreen() {
                     data={stations}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.stationCard}>
+                        <TouchableOpacity style={styles.stationCard} onPress={() => handleStationSelect(item)}>
                             <View style={styles.stationBrandBox}>
                                 <MaterialCommunityIcons name="ev-station" size={24} color={COLORS.primary} />
                             </View>
@@ -285,11 +299,13 @@ export default function ExploreScreen() {
                                 <Text style={styles.stationTitleText}>{item.name}</Text>
                                 <Text style={styles.stationSubText} numberOfLines={1}>{item.address}</Text>
                                 <Text style={styles.stationMetaText}>
-                                    เปิด 24 ชั่วโมง  •  ≈ 2.3 กม. (4 นาที)
+                                    {item.openingHours || 'เปิด 24 ชั่วโมง'}  •  ≈ 2.3 กม. (4 นาที)
                                 </Text>
                                 <View style={styles.tagRow}>
-                                    <View style={[styles.statusTag, { backgroundColor: '#EBF5FF' }]}>
-                                        <Text style={[styles.statusTagText, { color: '#007AFF' }]}>พร้อมใช้งาน</Text>
+                                    <View style={[styles.statusTag, { backgroundColor: item.status === 'available' ? '#EBF5FF' : '#FFEBEB' }]}>
+                                        <Text style={[styles.statusTagText, { color: item.status === 'available' ? '#007AFF' : COLORS.danger }]}>
+                                            {item.status === 'available' ? 'พร้อมใช้งาน' : 'ไม่ว่าง'}
+                                        </Text>
                                     </View>
                                     <View style={styles.iconTag}>
                                         <MaterialCommunityIcons name="flash" size={14} color="#00BD68" />
@@ -300,6 +316,89 @@ export default function ExploreScreen() {
                     )}
                 />
             </Animated.View>
+
+            {/* --- STATION DETAIL FOCUS MODAL --- */}
+            {selectedStation && (
+                <Animated.View style={styles.focusModal}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+                        {/* Header Image/Banner Area */}
+                        <View style={styles.focusHeader}>
+                            <TouchableOpacity style={styles.closeFocus} onPress={() => setSelectedStation(null)}>
+                                <Ionicons name="close" size={24} color="white" />
+                            </TouchableOpacity>
+                            <View style={styles.stationLogoBox}>
+                                <MaterialCommunityIcons name="ev-station" size={32} color={COLORS.primary} />
+                            </View>
+                        </View>
+
+                        <View style={styles.focusContent}>
+                            <View style={styles.statusRow}>
+                                <View style={styles.statusBadge}>
+                                    <Text style={styles.statusBadgeText}>พร้อมใช้งาน</Text>
+                                </View>
+                            </View>
+
+                            <Text style={styles.focusStationName}>{selectedStation.name}</Text>
+                            <Text style={styles.focusStationMeta}>
+                                <Text style={{ color: COLORS.primary }}>เปิด</Text> 24 ชั่วโมง  •  ≈ 7.8 กม. (12 นาที)
+                            </Text>
+
+                            <TouchableOpacity>
+                                <Text style={styles.moreInfoLink}>ข้อมูลเพิ่มเติม {'>'}</Text>
+                            </TouchableOpacity>
+
+                            {/* Filter Tabs */}
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScroll}>
+                                <TouchableOpacity style={[styles.tabBtn, styles.activeTab]}>
+                                    <Text style={[styles.tabBtnText, styles.activeTabText]}>แสดงทั้งหมด</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.tabBtn}>
+                                    <Text style={styles.tabBtnText}>หัวชาร์จที่ว่างตอนนี้</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.tabBtn}>
+                                    <Ionicons name="flash" size={16} color={COLORS.primary} />
+                                    <Text style={styles.tabBtnText}>Auto Charge</Text>
+                                </TouchableOpacity>
+                            </ScrollView>
+
+                            {/* Connectors List */}
+                            <Text style={styles.sectionHeader}>CC (กระแสสูงสุด 200A) <Ionicons name="information-circle-outline" size={16} color="#999" /></Text>
+                            <Text style={styles.machineId}>รหัสเครื่องชาร์จ : 1156</Text>
+
+                            {selectedStation.connectors.map((connector) => (
+                                <View key={connector.id} style={styles.connectorCard}>
+                                    <View style={styles.connectorInfo}>
+                                        <View style={styles.connectorIconBox}>
+                                            <MaterialCommunityIcons
+                                                name={connector.type.includes('AC') ? "nut" : "power-plug-outline"}
+                                                size={30}
+                                                color="#333"
+                                            />
+                                        </View>
+                                        <View style={styles.connectorDetails}>
+                                            <Text style={styles.connectorType}>{connector.type}</Text>
+                                            <Text style={styles.connectorPos}>{connector.position} {connector.label}</Text>
+                                            <Text style={styles.connectorPower}>สูงสุด <Text style={{ fontWeight: 'bold' }}>{connector.power} kW</Text>  |  <Text style={{ fontWeight: 'bold' }}>{connector.price.toFixed(2)}</Text> ฿/kWh</Text>
+                                        </View>
+                                    </View>
+                                    <View style={styles.connectorAction}>
+                                        <View style={[styles.miniStatus, { backgroundColor: connector.status === 'available' ? '#EBF5FF' : '#FFEBEB' }]}>
+                                            <Text style={[styles.miniStatusText, { color: connector.status === 'available' ? COLORS.primary : COLORS.danger }]}>
+                                                {connector.status === 'available' ? 'พร้อมใช้งาน' : 'มีผู้ใช้งาน'}
+                                            </Text>
+                                        </View>
+                                        {connector.status === 'available' && (
+                                            <TouchableOpacity style={styles.bookBtn}>
+                                                <Text style={styles.bookBtnText}>จอง</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </ScrollView>
+                </Animated.View>
+            )}
 
             {errorMsg && (
                 <View style={styles.errorBanner}>
@@ -601,5 +700,234 @@ const styles = StyleSheet.create({
     stationAddress: {
         color: COLORS.textSecondary,
         fontSize: 13,
+    },
+
+    // Focus Modal Styles
+    focusModal: {
+        position: 'absolute',
+        top: 60,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'white',
+        zIndex: 100,
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+    },
+    focusHeader: {
+        height: 180,
+        backgroundColor: COLORS.primary, // Changed from blue to green
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderTopLeftRadius: 30,
+        borderTopRightRadius: 30,
+    },
+    closeFocus: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    stationLogoBox: {
+        width: 80,
+        height: 80,
+        backgroundColor: 'white',
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        position: 'absolute',
+        bottom: -40,
+        left: 20,
+        borderWidth: 1,
+        borderColor: '#EEE',
+    },
+    focusContent: {
+        flex: 1,
+        marginTop: 50,
+        paddingHorizontal: 20,
+    },
+    statusRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        marginBottom: 10,
+    },
+    statusBadge: {
+        backgroundColor: '#EBF5FF',
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 5,
+    },
+    statusBadgeText: {
+        color: COLORS.primary,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    focusStationName: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: COLORS.text,
+        marginBottom: 8,
+    },
+    focusStationMeta: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginBottom: 10,
+    },
+    moreInfoLink: {
+        color: COLORS.primary,
+        fontSize: 15,
+        fontWeight: 'bold',
+        marginBottom: 20,
+    },
+    tabScroll: {
+        marginBottom: 20,
+        maxHeight: 45,
+    },
+    tabBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        borderWidth: 1,
+        borderColor: '#EEE',
+        paddingHorizontal: 15,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    activeTab: {
+        backgroundColor: COLORS.primary,
+        borderColor: COLORS.primary,
+    },
+    tabBtnText: {
+        color: COLORS.text,
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    activeTabText: {
+        color: 'white',
+    },
+    sectionHeader: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 4,
+        marginTop: 10,
+    },
+    machineId: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 15,
+    },
+    connectorCard: {
+        backgroundColor: 'white',
+        borderRadius: 15,
+        padding: 15,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    connectorInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    connectorIconBox: {
+        width: 50,
+        height: 50,
+        borderRadius: 10,
+        backgroundColor: '#F8F9FA',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    connectorDetails: {
+        flex: 1,
+    },
+    connectorType: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    connectorPos: {
+        fontSize: 13,
+        color: '#666',
+        marginVertical: 2,
+    },
+    connectorPower: {
+        fontSize: 13,
+        color: '#333',
+    },
+    connectorAction: {
+        alignItems: 'flex-end',
+    },
+    miniStatus: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 4,
+        marginBottom: 8,
+    },
+    miniStatusText: {
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    bookBtn: {
+        backgroundColor: COLORS.primary,
+        paddingHorizontal: 20,
+        paddingVertical: 8,
+        borderRadius: 8,
+    },
+    bookBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    focusFooter: {
+        height: 100,
+        borderTopWidth: 1,
+        borderTopColor: '#EEE',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        backgroundColor: 'white',
+    },
+    footerIconBtn: {
+        width: 50,
+        height: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    footerDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: '#EEE',
+        marginHorizontal: 10,
+    },
+    mainActionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        backgroundColor: COLORS.primary,
+        height: 55,
+        borderRadius: 15,
+        marginLeft: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    mainActionText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginLeft: 10,
     },
 });
