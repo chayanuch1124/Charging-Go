@@ -1,10 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, FlatList, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { COLORS } from '../../constants/theme';
 import { ChargingStation, fetchChargingStations } from '../../services/api';
+import { FavoritesService } from '../../services/favoritesService';
+import { calculateDistance, getDistanceInfo } from '../../services/utils';
 
 export default function ExploreScreen() {
     const [stations, setStations] = useState<ChargingStation[]>([]);
@@ -12,7 +14,38 @@ export default function ExploreScreen() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
+    const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const mapRef = useRef<MapView>(null);
+
+    // Filter and Sort stations whenever relevant data changes
+    const displayStations = useMemo(() => {
+        let filtered = [...stations];
+
+        // Filter by favorites if active
+        if (showFavoritesOnly) {
+            filtered = filtered.filter(s => favoriteIds.includes(s.id));
+        }
+
+        // Sort by distance
+        if (!location || !filtered.length) return filtered;
+
+        return filtered.sort((a, b) => {
+            const distA = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                a.latitude,
+                a.longitude
+            );
+            const distB = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                b.latitude,
+                b.longitude
+            );
+            return distA - distB;
+        });
+    }, [stations, location, favoriteIds, showFavoritesOnly]);
 
     // Bottom Sheet Animation
     const COLLAPSED_VISIBLE_HEIGHT = 80;
@@ -115,9 +148,14 @@ export default function ExploreScreen() {
                 })();
             }
 
-            const [stationData, currentLoc] = await Promise.all([stationPromise, locationPromise]);
+            const [stationData, currentLoc, favs] = await Promise.all([
+                stationPromise,
+                locationPromise,
+                FavoritesService.getFavorites()
+            ]);
 
             setStations(stationData);
+            setFavoriteIds(favs);
             if (currentLoc) setLocation(currentLoc);
         } catch (error) {
             console.error('Error loading data:', error);
@@ -148,6 +186,11 @@ export default function ExploreScreen() {
                 longitudeDelta: 0.05,
             }, 1000);
         }
+    };
+
+    const toggleFavorite = async (stationId: string) => {
+        const updated = await FavoritesService.toggleFavorite(stationId);
+        setFavoriteIds(updated);
     };
 
     if (loading && !stations.length) {
@@ -199,8 +242,15 @@ export default function ExploreScreen() {
                             style={styles.searchInput}
                         />
                     </View>
-                    <TouchableOpacity style={styles.favoriteBtn}>
-                        <Ionicons name="heart-outline" size={24} color={COLORS.primary} />
+                    <TouchableOpacity
+                        style={[styles.favoriteBtn, showFavoritesOnly && styles.activeFavoriteBtn]}
+                        onPress={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                    >
+                        <Ionicons
+                            name={showFavoritesOnly ? "heart" : "heart-outline"}
+                            size={24}
+                            color={showFavoritesOnly ? "white" : COLORS.primary}
+                        />
                     </TouchableOpacity>
                 </View>
 
@@ -232,7 +282,7 @@ export default function ExploreScreen() {
                 showsMyLocationButton={false}
                 userInterfaceStyle="light"
             >
-                {stations.map((station) => (
+                {displayStations.map((station) => (
                     <Marker
                         key={station.id}
                         coordinate={{
@@ -268,7 +318,7 @@ export default function ExploreScreen() {
                 ]}
             >
                 <View style={styles.sheetHeader} {...panResponder.panHandlers}>
-                    <Text style={styles.sheetTitle}>รายชื่อ <Text style={{ color: '#00BD68' }}>ค้นเจอ {stations.length} สถานี</Text></Text>
+                    <Text style={styles.sheetTitle}>รายชื่อ <Text style={{ color: '#00BD68' }}>ค้นเจอ {displayStations.length} สถานี</Text></Text>
                     <View style={styles.headerIcons}>
                         <TouchableOpacity>
                             <Ionicons name="list" size={24} color={COLORS.text} />
@@ -288,7 +338,7 @@ export default function ExploreScreen() {
                 </View>
 
                 <FlatList
-                    data={stations}
+                    data={displayStations}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <TouchableOpacity style={styles.stationCard} onPress={() => handleStationSelect(item)}>
@@ -299,7 +349,7 @@ export default function ExploreScreen() {
                                 <Text style={styles.stationTitleText}>{item.name}</Text>
                                 <Text style={styles.stationSubText} numberOfLines={1}>{item.address}</Text>
                                 <Text style={styles.stationMetaText}>
-                                    {item.openingHours || 'เปิด 24 ชั่วโมง'}  •  ≈ 2.3 กม. (4 นาที)
+                                    {item.openingHours || 'เปิด 24 ชั่วโมง'}  •  {getDistanceInfo(location, item.latitude, item.longitude).distance} {getDistanceInfo(location, item.latitude, item.longitude).time}
                                 </Text>
                                 <View style={styles.tagRow}>
                                     <View style={[styles.statusTag, { backgroundColor: item.status === 'available' ? '#EBF5FF' : '#FFEBEB' }]}>
@@ -332,6 +382,17 @@ export default function ExploreScreen() {
                         </View>
 
                         <View style={styles.focusContent}>
+                            <TouchableOpacity
+                                style={styles.favoriteFocusBtn}
+                                onPress={() => toggleFavorite(selectedStation.id)}
+                            >
+                                <Ionicons
+                                    name={favoriteIds.includes(selectedStation.id) ? "heart" : "heart-outline"}
+                                    size={24}
+                                    color={favoriteIds.includes(selectedStation.id) ? COLORS.danger : COLORS.textSecondary}
+                                />
+                            </TouchableOpacity>
+
                             <View style={styles.statusRow}>
                                 <View style={styles.statusBadge}>
                                     <Text style={styles.statusBadgeText}>พร้อมใช้งาน</Text>
@@ -340,7 +401,7 @@ export default function ExploreScreen() {
 
                             <Text style={styles.focusStationName}>{selectedStation.name}</Text>
                             <Text style={styles.focusStationMeta}>
-                                <Text style={{ color: COLORS.primary }}>เปิด</Text> 24 ชั่วโมง  •  ≈ 7.8 กม. (12 นาที)
+                                <Text style={{ color: COLORS.primary }}>เปิด</Text> {selectedStation.openingHours || '24 ชั่วโมง'}  •  {getDistanceInfo(location, selectedStation.latitude, selectedStation.longitude).distance} {getDistanceInfo(location, selectedStation.latitude, selectedStation.longitude).time}
                             </Text>
 
                             <TouchableOpacity>
@@ -455,6 +516,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 10,
         elevation: 5,
+    },
+    activeFavoriteBtn: {
+        backgroundColor: COLORS.primary,
     },
     filterScroll: {
         marginTop: 15,
@@ -732,6 +796,25 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 10,
+    },
+    favoriteFocusBtn: {
+        position: 'absolute',
+        top: -65,
+        right: 20,
+        backgroundColor: 'white',
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        zIndex: 20,
     },
     stationLogoBox: {
         width: 80,

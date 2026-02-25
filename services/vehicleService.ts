@@ -6,6 +6,8 @@ export interface Vehicle {
     model: string;
     license_plate: string;
     province: string;
+    connector_ac?: string;
+    connector_dc?: string;
     created_at?: string;
 }
 

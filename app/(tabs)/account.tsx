@@ -9,6 +9,8 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const CAR_BRANDS = ['Tesla', 'BYD', 'MG', 'GWM', 'BMW', 'Mercedes-Benz', 'Volvo', 'Hyundai', 'Other'];
+const AC_CONNECTORS = ['None', 'Type 2', 'Type 1', 'GB/T'];
+const DC_CONNECTORS = ['None', 'CCS2', 'CHAdeMO', 'GB/T'];
 
 export default function AccountScreen() {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -19,6 +21,8 @@ export default function AccountScreen() {
         model: '',
         license_plate: '',
         province: '',
+        connector_ac: 'Type 2',
+        connector_dc: 'CCS2',
     });
     const [profile, setProfile] = useState<Profile | null>(null);
     const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -171,7 +175,14 @@ export default function AccountScreen() {
     };
 
     const resetForm = () => {
-        setCurrentVehicle({ brand: 'Tesla', model: '', license_plate: '', province: '' });
+        setCurrentVehicle({
+            brand: 'Tesla',
+            model: '',
+            license_plate: '',
+            province: '',
+            connector_ac: 'Type 2',
+            connector_dc: 'CCS2'
+        });
         setIsEditing(false);
     };
 
@@ -268,6 +279,32 @@ export default function AccountScreen() {
                         </View>
                     </View>
 
+                    <Text style={styles.label}>หัวชาร์จ AC</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandContainer}>
+                        {AC_CONNECTORS.map((c) => (
+                            <TouchableOpacity
+                                key={c}
+                                style={[styles.brandChip, currentVehicle.connector_ac === c && styles.selectedChip]}
+                                onPress={() => setCurrentVehicle({ ...currentVehicle, connector_ac: c })}
+                            >
+                                <Text style={[styles.brandChipText, currentVehicle.connector_ac === c && styles.selectedChipText]}>{c}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+                    <Text style={styles.label}>หัวชาร์จ DC</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.brandContainer}>
+                        {DC_CONNECTORS.map((c) => (
+                            <TouchableOpacity
+                                key={c}
+                                style={[styles.brandChip, currentVehicle.connector_dc === c && styles.selectedChip]}
+                                onPress={() => setCurrentVehicle({ ...currentVehicle, connector_dc: c })}
+                            >
+                                <Text style={[styles.brandChipText, currentVehicle.connector_dc === c && styles.selectedChipText]}>{c}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
                     <View style={styles.btnRow}>
                         <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
                             <Text style={styles.saveBtnText}>{isEditing ? 'อัปเดตข้อมูล' : 'บันทึกข้อมูล'}</Text>
@@ -294,6 +331,20 @@ export default function AccountScreen() {
                             <View style={styles.vehicleInfo}>
                                 <Text style={styles.vehicleBrandName}>{v.brand} {v.model}</Text>
                                 <Text style={styles.vehiclePlateText}>{v.license_plate} {v.province}</Text>
+                                <View style={styles.connectorTags}>
+                                    {v.connector_ac && v.connector_ac !== 'None' && (
+                                        <View style={styles.tag}>
+                                            <Ionicons name="flash-outline" size={10} color={COLORS.primary} />
+                                            <Text style={styles.tagText}>AC: {v.connector_ac}</Text>
+                                        </View>
+                                    )}
+                                    {v.connector_dc && v.connector_dc !== 'None' && (
+                                        <View style={[styles.tag, { backgroundColor: 'rgba(255, 102, 0, 0.1)' }]}>
+                                            <Ionicons name="flash" size={10} color="#FF6600" />
+                                            <Text style={[styles.tagText, { color: '#FF6600' }]}>DC: {v.connector_dc}</Text>
+                                        </View>
+                                    )}
+                                </View>
                             </View>
                             <View style={styles.actionRow}>
                                 <TouchableOpacity onPress={() => handleEdit(v)} style={styles.actionBtn}>
@@ -349,7 +400,10 @@ const styles = StyleSheet.create({
     vehicleItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, padding: 20, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
     vehicleInfo: { flex: 1 },
     vehicleBrandName: { color: COLORS.text, fontSize: 16, fontWeight: 'bold' },
-    vehiclePlateText: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
+    vehiclePlateText: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4, marginBottom: 8 },
+    connectorTags: { flexDirection: 'row', flexWrap: 'wrap' },
+    tag: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0, 189, 104, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginRight: 8, marginTop: 4 },
+    tagText: { fontSize: 10, color: COLORS.primary, fontWeight: 'bold', marginLeft: 4 },
     actionRow: { flexDirection: 'row' },
     actionBtn: { marginLeft: 15, padding: 5 },
     emptyView: { padding: 40, alignItems: 'center' },

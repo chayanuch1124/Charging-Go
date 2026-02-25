@@ -35,8 +35,8 @@ export default function HistoryScreen() {
     const renderItem = ({ item }: { item: HistoryRecord }) => (
         <View style={[globalStyles.card, styles.historyCard]}>
             <View style={styles.cardHeader}>
-                <View style={[styles.iconBox, { backgroundColor: '#F8F9FA' }]}>
-                    <Ionicons name="flash" size={20} color="#00BD68" />
+                <View style={styles.iconBox}>
+                    <Ionicons name="flash" size={20} color={COLORS.primary} />
                 </View>
                 <View style={styles.titleInfo}>
                     <Text style={styles.stationName}>{item.stationName}</Text>
@@ -50,7 +50,7 @@ export default function HistoryScreen() {
                     <Text style={styles.detailLabel}>พลังงาน</Text>
                     <Text style={styles.detailValue}>{item.energy} kWh</Text>
                 </View>
-                <View style={styles.detailItem}>
+                <View style={[styles.detailItem, { alignItems: 'flex-end' }]}>
                     <Text style={styles.detailLabel}>ระยะเวลา</Text>
                     <Text style={styles.detailValue}>{item.duration}</Text>
                 </View>
@@ -92,19 +92,37 @@ const styles = StyleSheet.create({
     historyCard: {
         marginBottom: 15,
         borderWidth: 1,
-        borderColor: '#EEE',
+        borderColor: '#F0F0F0',
+        elevation: 3,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
     },
     cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-    iconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 189, 104, 0.1)',
+    },
     titleInfo: { flex: 1, marginLeft: 12 },
-    stationName: { color: COLORS.text, fontSize: 15, fontWeight: 'bold' },
-    dateText: { color: '#999', fontSize: 12, marginTop: 2 },
-    costText: { color: COLORS.text, fontSize: 16, fontWeight: 'bold' },
-    detailsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
+    stationName: { color: COLORS.text, fontSize: 16, fontWeight: 'bold' },
+    dateText: { color: '#999', fontSize: 13, marginTop: 2 },
+    costText: { color: COLORS.text, fontSize: 18, fontWeight: 'bold' },
+    detailsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#F5F5F5'
+    },
     detailItem: { flex: 1 },
-    detailLabel: { color: '#999', fontSize: 11, marginBottom: 2 },
-    detailValue: { color: COLORS.text, fontSize: 14, fontWeight: '500' },
-    emptyContainer: { padding: 50, alignItems: 'center' },
-    emptyText: { color: COLORS.textSecondary, marginTop: 10 },
+    detailLabel: { color: '#999', fontSize: 12, marginBottom: 4 },
+    detailValue: { color: COLORS.text, fontSize: 15, fontWeight: '600' },
+    emptyContainer: { padding: 50, alignItems: 'center', marginTop: 100 },
+    emptyText: { color: COLORS.textSecondary, marginTop: 15, fontSize: 16 },
 });
 

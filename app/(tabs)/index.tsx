@@ -1,24 +1,58 @@
 import { COLORS, globalStyles, PROMOTIONS } from '@/constants/theme';
 import { ChargingStation, fetchChargingStations } from '@/services/api';
+import { calculateDistance, getDistanceInfo } from '@/services/utils';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
-import { FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Location from 'expo-location';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeDashboard() {
     const [stations, setStations] = useState<ChargingStation[]>([]);
+    const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Sort stations by distance whenever location or stations change
+    const nearestStations = useMemo(() => {
+        if (!location || !stations.length) return stations.slice(0, 3);
+
+        return [...stations].sort((a, b) => {
+            const distA = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                a.latitude,
+                a.longitude
+            );
+            const distB = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                b.latitude,
+                b.longitude
+            );
+            return distA - distB;
+        }).slice(0, 3);
+    }, [stations, location]);
+
     useEffect(() => {
-        loadStations();
+        loadData();
     }, []);
 
-    const loadStations = async (force = false) => {
+    const loadData = async (force = false) => {
         setLoading(true);
         try {
-            const data = await fetchChargingStations(force);
-            setStations(data);
+            // Fetch stations
+            const stationData = await fetchChargingStations(force);
+            setStations(stationData);
+
+            // Fetch location if on mobile
+            if (Platform.OS !== 'web') {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status === 'granted') {
+                    const currentLoc = await Location.getCurrentPositionAsync({});
+                    setLocation(currentLoc);
+                }
+            }
         } catch (error) {
-            console.error('Error loading stations:', error);
+            console.error('Error loading data:', error);
         } finally {
             setLoading(false);
         }
@@ -65,10 +99,11 @@ export default function HomeDashboard() {
             <Text style={styles.sectionTitle}>สถานีใกล้คุณ</Text>
             {loading && stations.length === 0 ? (
                 <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
                     <Text style={styles.loadingText}>กำลังค้นหาสถานี...</Text>
                 </View>
             ) : (
-                stations.slice(0, 3).map((station) => (
+                nearestStations.map((station) => (
                     <TouchableOpacity key={station.id} style={globalStyles.card}>
                         <View style={styles.stationRow}>
                             <View style={styles.iconBox}>
@@ -76,7 +111,10 @@ export default function HomeDashboard() {
                             </View>
                             <View style={styles.stationInfo}>
                                 <Text style={styles.stationName}>{station.name}</Text>
-                                <Text style={styles.stationAddress}>{station.address}</Text>
+                                <Text style={styles.stationMetaText}>
+                                    {getDistanceInfo(location, station.latitude, station.longitude).distance} {getDistanceInfo(location, station.latitude, station.longitude).time}
+                                </Text>
+                                <Text style={styles.stationAddress} numberOfLines={1}>{station.address}</Text>
                             </View>
                             <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
                         </View>
@@ -189,6 +227,13 @@ const styles = StyleSheet.create({
     stationAddress: {
         color: COLORS.textSecondary,
         fontSize: 12,
+        marginTop: 2,
+    },
+    stationMetaText: {
+        color: COLORS.primary,
+        fontSize: 13,
+        fontWeight: 'bold',
+        marginTop: 2,
     },
     loadingContainer: {
         padding: 40,
