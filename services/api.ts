@@ -30,16 +30,30 @@ export const fetchChargingStations = async (forceRefresh: boolean = false): Prom
         }
     }
 
-    // 2. Perform Fetch (Simulated for now, replace URL with real endpoint)
+    // 2. Perform Fetch (Real API Call)
     try {
         console.log('Fetching from network...');
-        // Example of a real fetch call:
-        // const response = await fetch('https://api.example.com/stations');
-        // const data = await response.json();
 
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        const data = MOCK_DATA;
+        // ทดสอบดึงข้อมูลจาก API จริง (JSONPlaceholder) และแปลงข้อมูลให้เข้ากับ Mobile App ของเรา
+        const API_URL = 'https://jsonplaceholder.typicode.com/posts?_limit=8';
+
+        const response = await fetch(API_URL);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const rawData = await response.json();
+
+        // แปลงข้อมูล (Mapping) จาก API ให้เป็นรูปแบบ ChargingStation
+        const data: ChargingStation[] = rawData.map((item: any, index: number) => ({
+            id: item.id.toString(),
+            name: `สถานี: ${item.title.substring(0, 15)}...`,
+            latitude: 13.75 + (index * 0.005), // จำลองพิกัดในกรุงเทพฯ
+            longitude: 100.50 + (index * 0.005),
+            address: `เขตปทุมวัน, กรุงเทพมหานคร (ข้อมูลจาก API)`,
+            status: index % 3 === 0 ? 'busy' : 'available',
+            plugType: index % 2 === 0 ? ['CCS2', 'Type 2'] : ['Type 2'],
+        }));
 
         // 3. Save to Cache
         await StorageService.cacheStations(data);
