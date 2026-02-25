@@ -1,0 +1,42 @@
+[
+    {
+        "id": "1",
+        "stationName": "Central World Tower",
+        "date": "24 Feb 2026, 14:30",
+        "energy": 25.5,
+        "cost": 127.5,
+        "duration": "45 min"
+    },
+    {
+        "id": "2",
+        "stationName": "Siam Paragon G Floor",
+        "date": "22 Feb 2026, 10:15",
+        "energy": 18.2,
+        "cost": 91.0,
+        "duration": "32 min"
+    },
+    {
+        "id": "3",
+        "stationName": "MBK Center B1",
+        "date": "20 Feb 2026, 18:45",
+        "energy": 30.0,
+        "cost": 150.0,
+        "duration": "55 min"
+    },
+    {
+        "id": "4",
+        "stationName": "PTT Station Vibhavadi",
+        "date": "18 Feb 2026, 08:20",
+        "energy": 12.4,
+        "cost": 62.0,
+        "duration": "22 min"
+    },
+    {
+        "id": "5",
+        "stationName": "Evolt @ Home",
+        "date": "15 Feb 2026, 20:00",
+        "energy": 45.0,
+        "cost": 225.0,
+        "duration": "6 hours"
+    }
+]
